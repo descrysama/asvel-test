@@ -48,6 +48,39 @@ export const TRANCHES_EFFECTIF = [
   { value: '53', label: '10 000 salariés et plus' },
 ] as const
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Track last request time to space them out
+let lastRequestTime = 0
+const MIN_DELAY_MS = 250
+
+async function fetchWithRetry(url: string, maxRetries = 5): Promise<Response> {
+  // Ensure minimum delay between requests
+  const now = Date.now()
+  const elapsed = now - lastRequestTime
+  if (elapsed < MIN_DELAY_MS) {
+    await delay(MIN_DELAY_MS - elapsed)
+  }
+  lastRequestTime = Date.now()
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url)
+
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After')
+      const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000 * (attempt + 1)
+      console.warn(`Rate limited (429), retrying in ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})`)
+      await delay(waitMs)
+      continue
+    }
+
+    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    return res
+  }
+
+  throw new Error('Max retries exceeded (429)')
+}
+
 export async function searchNearPoint(params: {
   lat: number
   long: number
@@ -66,7 +99,6 @@ export async function searchNearPoint(params: {
   url.searchParams.set('page', (params.page ?? 1).toString())
   url.searchParams.set('per_page', (params.per_page ?? 25).toString())
 
-  const res = await fetch(url.toString())
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  const res = await fetchWithRetry(url.toString())
   return res.json()
 }
