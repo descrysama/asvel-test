@@ -1,7 +1,12 @@
 import { useRef, useEffect, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import type { Entreprise } from '@/lib/api'
+import type { Entreprise, Etablissement } from '@/lib/api'
+
+interface StackEntry {
+  entreprise: Entreprise
+  etab: Etablissement
+}
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
@@ -128,36 +133,92 @@ export function MapView({ center, radius, entreprises }: MapViewProps) {
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
 
+    // Group establishments by coordinates (rounded to ~1m precision)
+    const groups = new Map<string, StackEntry[]>()
     entreprises.forEach((e) => {
       const etablissements = e.matching_etablissements?.length
         ? e.matching_etablissements
         : [e.siege]
 
       etablissements.forEach((etab) => {
-        const lat = etab.latitude
-        const lng = etab.longitude
-        if (lat == null || lng == null) return
+        const lat = Number(etab.latitude)
+        const lng = Number(etab.longitude)
+        if (isNaN(lat) || isNaN(lng)) return
+        const key = `${lat.toFixed(5)},${lng.toFixed(5)}`
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key)!.push({ entreprise: e, etab })
+      })
+    })
 
-        const popup = new mapboxgl.Popup({ offset: 25, maxWidth: '280px' }).setHTML(`
-          <div style="font-family:system-ui;font-size:13px;">
+    groups.forEach((stack) => {
+      const { etab } = stack[0]
+      const lng = etab.longitude!
+      const lat = etab.latitude!
+
+      function renderPopupHTML(index: number) {
+        const { entreprise: e, etab: et } = stack[index]
+        const nav = stack.length > 1
+          ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #eee;">
+              <button data-dir="prev" style="border:none;background:#f3f4f6;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:14px;">&#8249;</button>
+              <span style="font-size:12px;color:#888;">${index + 1} / ${stack.length}</span>
+              <button data-dir="next" style="border:none;background:#f3f4f6;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:14px;">&#8250;</button>
+            </div>`
+          : ''
+        return `
+          <div style="font-family:system-ui;font-size:13px;min-width:200px;">
+            ${nav}
             <strong style="font-size:14px;">${e.nom_complet}</strong><br/>
-            <span style="color:#666;">SIRET: ${etab.siret}</span><br/>
-            <span style="color:#666;">📍 ${etab.adresse || 'Adresse inconnue'}</span><br/>
+            <span style="color:#666;">SIRET: ${et.siret}</span><br/>
+            <span style="color:#666;">📍 ${et.adresse || 'Adresse inconnue'}</span><br/>
             ${e.categorie_entreprise ? `<span style="color:#666;">📊 ${e.categorie_entreprise}</span><br/>` : ''}
-            ${etab.tranche_effectif_salarie ? `<span style="color:#666;">👥 Tranche étab: ${etab.tranche_effectif_salarie}</span>` : ''}
+            ${et.tranche_effectif_salarie ? `<span style="color:#666;">👥 Tranche: ${et.tranche_effectif_salarie}</span>` : ''}
           </div>
-        `)
+        `
+      }
 
-        const el = document.createElement('div')
+      const popup = new mapboxgl.Popup({ offset: 25, maxWidth: '300px' })
+
+      let currentIndex = 0
+
+      popup.on('open', () => {
+        popup.setHTML(renderPopupHTML(currentIndex))
+        setupNavListeners()
+      })
+
+      function setupNavListeners() {
+        const el = popup.getElement()
+        if (!el) return
+        el.querySelectorAll<HTMLButtonElement>('button[data-dir]').forEach((btn) => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation()
+            const dir = btn.dataset.dir
+            if (dir === 'prev') currentIndex = (currentIndex - 1 + stack.length) % stack.length
+            else currentIndex = (currentIndex + 1) % stack.length
+            popup.setHTML(renderPopupHTML(currentIndex))
+            setupNavListeners()
+          })
+        })
+      }
+
+      popup.setHTML(renderPopupHTML(0))
+
+      // Marker element
+      const el = document.createElement('div')
+      if (stack.length > 1) {
+        el.style.cssText =
+          'position:relative;width:20px;height:20px;background:#ef4444;border:2px solid white;border-radius:50%;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;font-family:system-ui;'
+        el.textContent = String(stack.length)
+      } else {
         el.style.cssText =
           'width:12px;height:12px;background:#ef4444;border:2px solid white;border-radius:50%;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);'
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .setPopup(popup)
-          .addTo(map.current!)
+      }
 
-        markersRef.current.push(marker)
-      })
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map.current!)
+
+      markersRef.current.push(marker)
     })
   }, [entreprises])
 
