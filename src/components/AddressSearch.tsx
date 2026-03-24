@@ -23,7 +23,7 @@ export function AddressSearch({ onSelect }: AddressSearchProps) {
       return
     }
     try {
-      const token = 'pk.eyJ1IjoibWFrZXJzb3VsIiwiYSI6ImNsbHhtd3V1dzBlMjYzcnAzNmVhdDRidjIifQ.Z4UswRfpsjf5pXByC4DN4A'
+      const token = import.meta.env.VITE_MAPBOX_TOKEN
       const res = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${token}&country=fr&limit=5&language=fr&types=address,poi,place,locality`
       )

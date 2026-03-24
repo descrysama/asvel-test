@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Entreprise } from '@/lib/api'
 
-mapboxgl.accessToken = 'pk.eyJ1IjoibWFrZXJzb3VsIiwiYSI6ImNsbHhtd3V1dzBlMjYzcnAzNmVhdDRidjIifQ.Z4UswRfpsjf5pXByC4DN4A'
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN
 
 interface MapViewProps {
   center: [number, number]

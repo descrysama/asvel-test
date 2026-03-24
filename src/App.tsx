@@ -63,6 +63,7 @@ function App() {
         entreprises={entreprises}
       />
       <SearchPanel
+        center={center}
         radius={radius}
         onRadiusChange={setRadius}
         selectedTranches={selectedTranches}

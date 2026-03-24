@@ -4,9 +4,11 @@ import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { AddressSearch } from '@/components/AddressSearch'
+import { ExportModal } from '@/components/ExportModal'
 import { TRANCHES_EFFECTIF } from '@/lib/api'
 
 interface SearchPanelProps {
+  center: [number, number]
   radius: number
   onRadiusChange: (radius: number) => void
   selectedTranches: string[]
@@ -21,6 +23,7 @@ interface SearchPanelProps {
 }
 
 export function SearchPanel({
+  center,
   radius,
   onRadiusChange,
   selectedTranches,
@@ -130,6 +133,13 @@ export function SearchPanel({
               {loading ? 'Chargement...' : `Charger plus (page ${page + 1}/${totalPages})`}
             </Button>
           )}
+
+          <ExportModal
+            center={center}
+            radius={radius}
+            selectedTranches={selectedTranches}
+            totalResults={totalResults}
+          />
         </CardContent>
       )}
     </Card>
