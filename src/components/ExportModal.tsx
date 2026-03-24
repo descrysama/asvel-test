@@ -23,10 +23,6 @@ function getTrancheLabel(code: string | null): string {
   return TRANCHES_EFFECTIF.find((t) => t.value === code)?.label ?? code
 }
 
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
 export function ExportModal({ center, radius, selectedTranches, totalResults }: ExportModalProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -56,8 +52,6 @@ export function ExportModal({ center, radius, selectedTranches, totalResults }: 
         setProgress({ loaded: allEntreprises.length, total: data.total_results })
 
         currentPage++
-        // Respect rate limit (7 req/s)
-        if (currentPage <= totalPages) await delay(150)
       }
 
       exportToExcel(allEntreprises)
@@ -102,10 +96,10 @@ export function ExportModal({ center, radius, selectedTranches, totalResults }: 
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          Exporter en Excel
-        </Button>
+      <DialogTrigger
+        render={<Button variant="outline" className="w-full" />}
+      >
+        Exporter en Excel
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
